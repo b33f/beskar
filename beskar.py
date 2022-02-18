@@ -21,7 +21,7 @@ all_args.add_argument("-u", "--user", required=True,
 all_args.add_argument("-p", "--pass", required=True,
    help="Password")
 all_args.add_argument("-c", "--cluster", required=True,
-   help="Cluster URL - https://10.145.212.101:18091")
+   help="Cluster URL - example: https://10.145.212.101:18091")
 all_args.add_argument("-n", "--noverify", required=False,
    action='store_true', help="No Cert Verification")
 all_args.add_argument("-v", "--verbose", required=False,
@@ -44,13 +44,13 @@ def rest_call(url):
         response = requests.get(url, verify = False,
             auth = HTTPBasicAuth(args['user'], args['pass']))
     else:
-        response = requests.get(args['cluster'],
+        response = requests.get(url,
             auth = HTTPBasicAuth(args['user'], args['pass']))
     if args['debug']:
         if response:
-            print('Request is successful.')
+            print('Request to {} is successful.'.format(url))
         else:
-            print('Request returned an error.')
+            print('Request to {} returned an error.'.format(url))
 
         print(response)
 
@@ -91,16 +91,33 @@ if args['verbose']:
 
 print ('Node Services: {}'.format(self_data['services']))
 
+'''
+Best practice is to use Enforce TLS 
+by setting encryption level to "strict" 
+'''
+
 if not self_data['nodeEncryption']:
     print ('Node encryption disabled')
 
 ########## /settings/audit checks
+
+'''
+Best practice is to enable couchbase auditing
+this should be used to monitor key system configuration changes 
+and respond to incidents or perform forensic analysis.
+'''
 
 if not audit_data['auditdEnabled']:
     print ('Audit not enabled')
 
 
 ########## /settings/ldap checks
+
+'''
+The best practice is to make MFA mandatory for all administrator accounts.
+It must be implemented as part of -
+an external authentication source such as LDAP
+'''
 
 if not ldap_data['authenticationEnabled']:
     print ('LDAP Authentication not enabled')
@@ -113,20 +130,46 @@ if not ldap_data['encryption']:
 
 ########## /settings/passwordPolicy checks
 
+'''
+Password Policy best practice is to use a password manager
+and use a passphrase of at least 15 characters
+separating each word with a special character
+OR a password at least 12 characters long
+with letters, numbers and special characters.
+'''
+
 if pw_policy_data['minLength'] < 12:
     print ('Password Policy length too short')
 
+if not pw_policy_data['enforceSpecialChars']:
+    print ('Password Policy not requiring special characters')
+
 ########## /pools/default/certificate?extended=true checks
 
+'''
+Best practice, replace self-signed certificates
+ with certificates generated from a trusted CA
+'''
+
 if cert_data['cert']['type'] == 'generated':
-    print ('Using self-signed generated cert')
+    print ('Using self-signed generated TLS cert')
 
 ########## /settings/security checks
+
+'''
+Best practice, require TLS v1.2 as the minimum
+TLS 1.0 and 1.1 are not considered secure
+'''
 
 if security_data['tlsMinVersion'] == 'tlsv1' or security_data['tlsMinVersion'] == 'tlsv1.1' :
     print ('Min TLS is insecure')
 
 ########## /settings/querySettings checks
+
+'''
+Best practice, only allow cURL in N1QL to specific hosts
+added to the allowed list
+'''
 
 if query_data['queryCurlWhitelist']['all_access']:
     print ('Query cURL not restricted')
