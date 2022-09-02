@@ -12,7 +12,7 @@
       "cpe_match": [
         {
           "versionStartIncluding": "4.0.0",
-          "versionEndExcluding": "7.1.2"
+          "versionEndExcluding": "7.1.1"
         }
       ]
     },
@@ -31,7 +31,7 @@
         },
         {
           "versionStartIncluding": "7.1.0",
-          "versionEndExcluding": "7.1.2"
+          "versionEndExcluding": "7.1.1"
         }
       ]
     },
@@ -46,7 +46,7 @@
       "cpe_match": [
         {
           "versionStartIncluding": "6.5.0",
-          "versionEndExcluding": "7.1.2"
+          "versionEndExcluding": "7.1.1"
         }
       ]
     },
@@ -61,7 +61,7 @@
       "cpe_match": [
         {
           "versionStartIncluding": "7.1.0",
-          "versionEndExcluding": "7.1.2"
+          "versionEndExcluding": "7.1.1"
         }
       ]
     },
@@ -76,7 +76,7 @@
       "cpe_match": [
         {
           "versionStartIncluding": "7.0.0",
-          "versionEndExcluding": "7.1.2"
+          "versionEndExcluding": "7.1.1"
         }
       ]
     },
