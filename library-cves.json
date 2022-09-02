@@ -1,0 +1,261 @@
+{
+  "CVE_data_timestamp": "2022-09-01T20:52Z",
+  "CVE_Items": [
+    {
+      "ID": "CVE-2022-24675",
+      "title": "Update of GoLang to a minimum of 1.17.9 or 1.18.1.",
+      "description": "Updated Go Programming Language and associated libraries used in multiple Couchbase Server services to versions 1.17.9+ or 1.18.1+ to resolve numerous CVEs.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "4.0.0",
+          "versionEndExcluding": "7.1.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2020-36518",
+      "title": "Update of jackson-databind library to version 2.13.2.2.",
+      "description": "jackson-databind, before 2.13.0 allows a Java StackOverflow exception and denial of service via a large depth of nested objects. This library is used by the Couchbase Server Analytics Service",
+      "baseMetricV3": {
+          "severity": "MEDIUM",
+          "cvss": "6.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.0.0",
+          "versionEndExcluding": "7.0.4"
+        },
+        {
+          "versionStartIncluding": "7.1.0",
+          "versionEndExcluding": "7.1.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2022-1292",
+      "title": "Update of openssl to 1.1.1o.",
+      "description": "Updated openssl to fix a flaw in an openssl component, c_rehash. This script scans directories and takes a hash value of each .pem and .crt file in the directory. It then creates symbolic links for each of the files named by the hash value. It has a flaw that allows command injection in the script.",
+      "baseMetricV3": {
+          "severity": "CRITICAL",
+          "cvss": "9.8"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.5.0",
+          "versionEndExcluding": "7.1.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-42581",
+      "title": "Updating ramda, a client-side javascript library to version 0.28 as used in the Couchbase Server UI.",
+      "description": "Ramda 0.27.0 and earlier allows attackers to compromise integrity or availability of application via supplying a crafted object (that contains an own property \"{}proto{}\") as an argument to the function, known as prototype pollution. Prototype pollution type attacks allow bypassing input validation and triggering unexpected javascript execution.",
+      "baseMetricV3": {
+          "severity": "CRITICAL",
+          "cvss": "9.1"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.1.0",
+          "versionEndExcluding": "7.1.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-44906",
+      "title": "Update of js-beautify to 1.14.3, a client-side javascript library used in the Couchbase Server UI.",
+      "description": "js-beautify has a dependency with a known vulnerability, Minimist. Minimist <=1.2.5 is vulnerable to Prototype Pollution via file index.js, function setKey() (lines 69-95). Prototype pollution attacks allow bypassing input validation and triggering unexpected javascript execution.",
+      "baseMetricV3": {
+          "severity": "CRITICAL",
+          "cvss": "9.8"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.0.0",
+          "versionEndExcluding": "7.1.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2020-14040",
+      "title": "Update golang.org/x/text package to 0.3.4 or later.",
+      "description": "The golang.org/x/text/encoding/unicode package which could lead to the UTF-16 decoder entering an infinite loop, causing the program to crash or run out of memory.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.0.0",
+          "versionEndExcluding": "7.0.4"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-3737",
+      "title": "Python updated to 3.9.12 to address a denial of service issue.",
+      "description": "A flaw was found in Python. An improperly handled HTTP response in the HTTP client code of Python may allow a remote attacker, who controls the HTTP server, to make the client script enter an infinite loop, consuming CPU time. This issue only affects clusters using the developer preview feature, Analytics UDFs.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.0.0",
+          "versionEndExcluding": "7.0.4"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-3737",
+      "title": "Update of Apache Log4J to 2.15.0.",
+      "description": "A critical issue in the Apache Log4J utility as used by the Couchbase Analytics Service requires updating to prevent potential Remote Code Execution (RCE) and sensitive data extraction.",
+      "baseMetricV3": {
+          "severity": "CRITICAL",
+          "cvss": "10"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.0.0",
+          "versionEndExcluding": "7.0.3"
+        },
+        {
+          "versionStartIncluding": "6.0.0",
+          "versionEndExcluding": "6.6.4"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-33503",
+      "title": "Update of the Python urllib3 to 1.26.5 or higher.",
+      "description": "An issue was discovered in urllib3 before 1.26.5, as used by Couchbase Server command line tools. When these tools are provided with a URL containing many @ characters in the authority component, the authority regular expression exhibits catastrophic backtracking, causing a denial of service of the command line tool if a URL were passed as a parameter or redirected to via an HTTP redirect.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.0.0",
+          "versionEndExcluding": "7.0.2"
+        },
+        {
+          "versionStartIncluding": "6.0.0",
+          "versionEndExcluding": "6.6.3"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2020-36242",
+      "title": "Update of the Python cryptography package to 3.3.2.",
+      "description": "In the cryptography package before 3.3.2 for Python, as used by the Couchbase Server command line tools, certain sequences of update calls to symmetrically encrypt multi-GB values could result in an integer overflow and buffer overflow in that tool.",
+      "baseMetricV3": {
+          "severity": "CRITICAL",
+          "cvss": "9.1"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "7.0.0",
+          "versionEndExcluding": "7.0.2"
+        },
+        {
+          "versionStartIncluding": "4.5.0",
+          "versionEndExcluding": "6.6.3"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2021-23840",
+      "title": "Update OpenSSL to version 1.1.1k.",
+      "description": "Multiple security issues resolved in OpenSSL, one of which could cause the TLS server to crash if sent a maliciously crafted renegotiation ClientHello message from a client.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.5.0",
+          "versionEndExcluding": "6.6.3"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2019-10768",
+      "title": "Update AngularJS to 1.8.0.",
+      "description": "Issue in Angular as used by the Couchbase UI that can cause a denial of service by modifying the merge() function.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "4.5.0",
+          "versionEndExcluding": "6.6.3"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2020-35381",
+      "title": "Update the buger/jsonparser library used by the Search Service to version 1.1.1.",
+      "description": "A security issue in the buger/jsonparser (JSON parser for Go) library allows an attacker to cause a denial of service (DOS) in the Couchbase Server Search Service.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.5.0",
+          "versionEndExcluding": "6.6.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2020-13956",
+      "title": "Update Apache HttpClient library used by Analytics Service to version 4.5.13.",
+      "description": "The Apache HttpClient, as used by the Couchbase Server Analytics Service, in versions prior to version 4.5.13 and 5.0.3 can misinterpret malformed authority component in request URIs passed to the library as java.net.URI object and pick the wrong target host for request execution.",
+      "baseMetricV3": {
+          "severity": "MEDIUM",
+          "cvss": "5.3"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "6.0.0",
+          "versionEndExcluding": "6.6.2"
+        }
+      ]
+    },
+    {
+      "ID": "CVE-2019-11324",
+      "title": "Update the urllib3 library used by the Couchbase CLI to version 1.26.3.",
+      "description": "The Python urllib3 library which is used by the requests Python library that in turn is used by the Couchbase CLI has a security issue in urllib3 versions before 1.24.2. The library mishandles certain cases where the desired set of CA certificates is different from the OS store of CA certificates, which results in SSL connections succeeding in situations where a verification failure is the correct outcome.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.5"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "5.0.0",
+          "versionEndExcluding": "6.6.2"
+        }
+      ]
+    },
+     {
+      "ID": "CVE-2019-14863",
+      "title": "FTS UI to upgrade to angular 1.6.9.",
+      "description": "The Full Text Seach user interface uses AngularJS 1.4.7 for which some known high severity security vulnerabilities exist. These AngularJS libraries have been updated to a more recent version of Angular which has addressed these vulnerabilities.",
+      "baseMetricV3": {
+          "severity": "HIGH",
+          "cvss": "7.4"
+        },
+      "cpe_match": [
+        {
+          "versionStartIncluding": "5.5.5",
+          "versionEndExcluding": "6.5.0"
+        }
+      ]
+    }
+  ]
+}

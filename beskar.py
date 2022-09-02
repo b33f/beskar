@@ -10,6 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
+import json
 import sys
 
 # Construct an argument parser
@@ -34,6 +35,13 @@ args = vars(all_args.parse_args())
 if not args['debug']:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+f = open('cbserver-cves.json')
+data = json.load(f)
+cb_cves = data["result"]["CVE_Items"]
+
+f = open('library-cves.json')
+data = json.load(f)
+library_cves = data["CVE_Items"]
 
 print(
     '''
@@ -42,6 +50,7 @@ print(
 ▐█▀▀█▄▐▀▀▪▄▄▀▀▀█▄▐▀▀▄·▄█▀▀█ ▐▀▀▄
 ██▄▪▐█▐█▄▄▌▐█▄▪▐█▐█.█▌▐█ ▪▐▌▐█•█▌
 ·▀▀▀▀  ▀▀▀  ▀▀▀▀ ·▀  ▀ ▀  ▀ .▀  ▀
+The Couchbase Server Security Scanner
     '''
 )
 
@@ -103,6 +112,7 @@ client_cert_data = rest_call(args['cluster'] + '/settings/clientCertAuth')
 # i.e. 7.0.2-6703-enterprise
 version_build = pools_data['implementationVersion'].split("-")
 version = version_build[0].split(".")
+#version = ["5","5","0"]
 
 print('Cluster Version: {}'.format(
                             pools_data['implementationVersion']))
@@ -113,6 +123,89 @@ if args['verbose']:
 
 if version_build[2] != "enterprise":
     sys.exit("Error: Only Couchbase Enterprise builds supported")
+
+print_bar()
+
+########## check Couchbase Server CVEs
+
+for cve in cb_cves:
+    for node in cve['configurations']['nodes']:
+        for cpe in node['cpe_match']:
+            if 'versionStartIncluding' in cpe:
+                cpe_sver = cpe['versionStartIncluding'].split(".")
+                if cpe_sver[0] < version[0] or (cpe_sver[0] == version[0] and cpe_sver[1] < version[1]) \
+                        or (cpe_sver[0] == version[0] and cpe_sver[1] == version[1]
+                        and cpe_sver[2] < version[2] ):
+                    if 'versionEndIncluding' in cpe:
+                        cpe_ever = cpe['versionEndIncluding'].split(".")
+                        if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
+                                or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
+                                    and cpe_ever[2] >= version[2]):
+                            print ("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
+                                    cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
+                                    cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
+                                                                 ))
+                            if args['verbose']:
+                                print ("-- vulnerable from {} to {} inclusive - Description: {}".format( \
+                                cpe['versionStartIncluding'], cpe['versionEndIncluding'], \
+                                cve['cve']['description']['description_data'][0]['value']
+                                                                        ))
+                    if 'versionEndExcluding' in cpe:
+                        cpe_ever = cpe['versionEndExcluding'].split(".")
+                        if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
+                                or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
+                                    and cpe_ever[2] > version[2]):
+                            print("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
+                                    cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
+                                    cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
+                                                                ))
+                            if args['verbose']:
+                                print("-- vulnerable from {} to {} exclusive - Description: {}".format( \
+                                    cpe['versionStartIncluding'], cpe['versionEndExcluding'], \
+                                    cve['cve']['description']['description_data'][0]['value']
+                                ))
+            else:
+                cpe_uri = cpe['cpe23Uri'].split(":")
+                vul_ver = cpe_uri[5].split(".")
+                #print(cpe)
+                if vul_ver[0] == version[0] and vul_ver[1] == version[1] and vul_ver[2] == version [2]:
+                    print("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
+                        cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
+                        cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
+                                                        ))
+                    if args['verbose']:
+                        print("-- vulnerable in {}.{}.{} - Description: {}".format( \
+                            version[0], version[1], version[2], \
+                            cve['cve']['description']['description_data'][0]['value']
+                        ))
+
+#example with range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:*:*:*:*:*:*:*:*', 'versionStartIncluding': '3.0.0', 'versionEndExcluding': '7.1.1', 'cpe_name': []}
+#example w/o range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:6.0.0:*:*:*:*:*:*:*', 'cpe_name': []}
+
+print_bar()
+
+########## check Couchbase Server 3rd Party CVEs
+
+for cve in library_cves:
+    for cpe in cve['cpe_match']:
+        cpe_sver = cpe['versionStartIncluding'].split(".")
+        if cpe_sver[0] < version[0] or (cpe_sver[0] == version[0] and cpe_sver[1] < version[1]) \
+                or (cpe_sver[0] == version[0] and cpe_sver[1] == version[1]
+                    and cpe_sver[2] < version[2]):
+            cpe_ever = cpe['versionEndExcluding'].split(".")
+            if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
+                    or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
+                        and cpe_ever[2] > version[2]):
+                print("{} Sev: {} CVSS: {} ".format(cve['ID'], \
+                                                    cve['baseMetricV3']['severity'], \
+                                                    cve['baseMetricV3']['cvss'], \
+                                                    ))
+                if args['verbose']:
+                    print("-- vulnerable from {} to {} exclusive - Title: {}".format( \
+                        cpe['versionStartIncluding'], cpe['versionEndExcluding'], \
+                        cve['title']
+                    ))
+
 
 print_bar()
 
@@ -184,7 +277,7 @@ with letters, numbers and special characters.
 '''
 
 if pw_policy_data['minLength'] < 12:
-    print('Password Policy length too short')
+    print('Password Policy length of %s too short' % pw_policy_data['minLength'])
 
 if not pw_policy_data['enforceSpecialChars']:
     print('Password Policy not requiring special characters')
@@ -208,8 +301,7 @@ TLS 1.0 and 1.1 are not considered secure
 
 if security_data['tlsMinVersion'] == 'tlsv1' or \
         security_data['tlsMinVersion'] == 'tlsv1.1':
-    print('Min TLS is insecure')
-
+    print('Min TLS of %s is insecure' % security_data['tlsMinVersion'])
 
 '''
 Best practice to only allow CA cert changes from
@@ -237,3 +329,4 @@ Best practice is for applications to auth with x.509 certs
 
 if client_cert_data['state'] == 'disable':
     print('Client x.509 cert auth disabled')
+
