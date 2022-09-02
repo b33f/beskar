@@ -112,7 +112,7 @@ client_cert_data = rest_call(args['cluster'] + '/settings/clientCertAuth')
 # i.e. 7.0.2-6703-enterprise
 version_build = pools_data['implementationVersion'].split("-")
 version = version_build[0].split(".")
-version = ["6","0","0"]
+#version = ["6","0","0"]
 
 print('Cluster Version: {}'.format(
                             pools_data['implementationVersion']))
