@@ -43,6 +43,8 @@ f = open('library-cves.json')
 data = json.load(f)
 library_cves = data["CVE_Items"]
 
+cve_order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+
 print(
     '''
 ▄▄▄▄· ▄▄▄ ..▄▄ · ▄ •▄  ▄▄▄· ▄▄▄
@@ -93,7 +95,7 @@ def rest_call(url):
     if args['debug']:
         print(str(rest_data))
 
-    return (rest_data)
+    return rest_data
 
 
 pools_data = rest_call(args['cluster'] + '/pools')
@@ -107,166 +109,136 @@ security_data = rest_call(args['cluster'] + '/settings/security/')
 query_data = rest_call(args['cluster'] + '/settings/querySettings')
 client_cert_data = rest_call(args['cluster'] + '/settings/clientCertAuth')
 
-########## /pools checks
+# [REST CALL] /pools checks
 
 # i.e. 7.0.2-6703-enterprise
 version_build = pools_data['implementationVersion'].split("-")
 version = version_build[0].split(".")
-#version = ["6","0","0"]
+# version = ["6","0","0"]
+# print ("DEBUG: Faking Version {}.{}.{}".format(version[0], version[1], version[2]))
 
 print('Cluster Version: {}'.format(
-                            pools_data['implementationVersion']))
+    pools_data['implementationVersion']))
 
 if args['verbose']:
-    print('Major ({}) - Minor ({}) - Maintence ({})'.format(
+    print('Major ({}) - Minor ({}) - Maintenance ({})'.format(
         version[0], version[1], version[2]))
 
 if version_build[2] != "enterprise":
     sys.exit("Error: Only Couchbase Enterprise builds supported")
 
-print_bar()
+rest_result = []
 
-########## check Couchbase Server CVEs
+# [READ FILES] check Couchbase Server CVEs
+
+cve_result = {"cbserver": {}, "library": {}}
 
 for cve in cb_cves:
     for node in cve['configurations']['nodes']:
         for cpe in node['cpe_match']:
             if 'versionStartIncluding' in cpe:
-                cpe_sver = cpe['versionStartIncluding'].split(".")
-                if cpe_sver[0] < version[0] or (cpe_sver[0] == version[0] and cpe_sver[1] < version[1]) \
-                        or (cpe_sver[0] == version[0] and cpe_sver[1] == version[1]
-                        and cpe_sver[2] <= version[2] ):
+                cpe_start_ver = cpe['versionStartIncluding'].split(".")
+                if cpe_start_ver[0] < version[0] or (cpe_start_ver[0] == version[0] and cpe_start_ver[1] < version[1]) \
+                        or (cpe_start_ver[0] == version[0] and cpe_start_ver[1] == version[1]
+                            and cpe_start_ver[2] <= version[2]):
                     if 'versionEndIncluding' in cpe:
-                        cpe_ever = cpe['versionEndIncluding'].split(".")
-                        if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
-                                or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
-                                    and cpe_ever[2] >= version[2]):
-                            print ("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
-                                    cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
-                                    cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
-                                                                 ))
-                            if args['verbose']:
-                                print ("-- vulnerable from {} to {} inclusive - Description: {}".format( \
-                                cpe['versionStartIncluding'], cpe['versionEndIncluding'], \
-                                cve['cve']['description']['description_data'][0]['value']
-                                                                        ))
+                        cpe_end_ver = cpe['versionEndIncluding'].split(".")
+                        if cpe_end_ver[0] > version[0] or (cpe_end_ver[0] == version[0] and
+                                                           cpe_end_ver[1] > version[1]) \
+                                or (cpe_end_ver[0] == version[0] and cpe_end_ver[1] == version[1]
+                                    and cpe_end_ver[2] >= version[2]):
+                            cve_result['cbserver'][cve['cve']['CVE_data_meta']['ID']] = \
+                                {'type': 'inclusive',
+                                 'severity': cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'],
+                                 'cvss': cve['impact']['baseMetricV3']['cvssV3']['baseScore'],
+                                 'start_ver': cpe['versionStartIncluding'], 'end_ver': cpe['versionEndIncluding'],
+                                 'description': cve['cve']['description']['description_data'][0]['value']}
                     if 'versionEndExcluding' in cpe:
-                        cpe_ever = cpe['versionEndExcluding'].split(".")
-                        if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
-                                or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
-                                    and cpe_ever[2] > version[2]):
-                            print("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
-                                    cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
-                                    cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
-                                                                ))
-                            if args['verbose']:
-                                print("-- vulnerable from {} to {} exclusive - Description: {}".format( \
-                                    cpe['versionStartIncluding'], cpe['versionEndExcluding'], \
-                                    cve['cve']['description']['description_data'][0]['value']
-                                ))
+                        cpe_end_ver = cpe['versionEndExcluding'].split(".")
+                        if cpe_end_ver[0] > version[0] or (cpe_end_ver[0] == version[0]
+                                                           and cpe_end_ver[1] > version[1]) \
+                                or (cpe_end_ver[0] == version[0] and cpe_end_ver[1] == version[1]
+                                    and cpe_end_ver[2] > version[2]):
+                            cve_result['cbserver'][cve['cve']['CVE_data_meta']['ID']] = \
+                                {'type': 'exclusive',
+                                 'severity': cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'],
+                                 'cvss': cve['impact']['baseMetricV3']['cvssV3']['baseScore'],
+                                 'start_ver': cpe['versionStartIncluding'], 'end_ver': cpe['versionEndExcluding'],
+                                 'description': cve['cve']['description']['description_data'][0]['value']}
             else:
                 cpe_uri = cpe['cpe23Uri'].split(":")
                 vul_ver = cpe_uri[5].split(".")
-                #print(cpe)
-                if vul_ver[0] == version[0] and vul_ver[1] == version[1] and vul_ver[2] == version [2]:
-                    print("{} Sev: {} CVSS: {} ".format(cve['cve']['CVE_data_meta']['ID'], \
-                        cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'], \
-                        cve['impact']['baseMetricV3']['cvssV3']['baseScore'], \
-                                                        ))
-                    if args['verbose']:
-                        print("-- vulnerable in {}.{}.{} - Description: {}".format( \
-                            version[0], version[1], version[2], \
-                            cve['cve']['description']['description_data'][0]['value']
-                        ))
+                if vul_ver[0] == version[0] and vul_ver[1] == version[1] and vul_ver[2] == version[2]:
+                    cve_result['cbserver'][cve['cve']['CVE_data_meta']['ID']] = \
+                        {'type': 'single',
+                         'severity': cve['impact']['baseMetricV3']['cvssV3']['baseSeverity'],
+                         'cvss': cve['impact']['baseMetricV3']['cvssV3']['baseScore'],
+                         'vuln_ver': vul_ver,
+                         'description': cve['cve']['description']['description_data'][0]['value']}
 
-#example with range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:*:*:*:*:*:*:*:*', 'versionStartIncluding': '3.0.0', 'versionEndExcluding': '7.1.1', 'cpe_name': []}
-#example w/o range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:6.0.0:*:*:*:*:*:*:*', 'cpe_name': []}
+# example with range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:*:*:*:*:*:*:*:*', \
+# 'versionStartIncluding': '3.0.0', 'versionEndExcluding': '7.1.1', 'cpe_name': []}
+# example w/o range {'vulnerable': True, 'cpe23Uri': 'cpe:2.3:a:couchbase:couchbase_server:6.0.0:*:*:*:*:*:*:*', \
+# 'cpe_name': []}
 
-print_bar()
-
-########## check Couchbase Server 3rd Party CVEs
+# [READ FILES] check Couchbase Server 3rd Party CVEs
 
 for cve in library_cves:
     for cpe in cve['cpe_match']:
-        cpe_sver = cpe['versionStartIncluding'].split(".")
-        if cpe_sver[0] < version[0] or (cpe_sver[0] == version[0] and cpe_sver[1] < version[1]) \
-                or (cpe_sver[0] == version[0] and cpe_sver[1] == version[1]
-                    and cpe_sver[2] <= version[2]):
-            cpe_ever = cpe['versionEndExcluding'].split(".")
-            if cpe_ever[0] > version[0] or (cpe_ever[0] == version[0] and cpe_ever[1] > version[1]) \
-                    or (cpe_ever[0] == version[0] and cpe_ever[1] == version[1]
-                        and cpe_ever[2] > version[2]):
-                print("{} Sev: {} CVSS: {} ".format(cve['ID'], \
-                                                    cve['baseMetricV3']['severity'], \
-                                                    cve['baseMetricV3']['cvss'], \
-                                                    ))
-                if args['verbose']:
-                    print("-- vulnerable from {} to {} exclusive - Title: {}".format( \
-                        cpe['versionStartIncluding'], cpe['versionEndExcluding'], \
-                        cve['title']
-                    ))
+        cpe_start_ver = cpe['versionStartIncluding'].split(".")
+        if cpe_start_ver[0] < version[0] or (cpe_start_ver[0] == version[0] and cpe_start_ver[1] < version[1]) \
+                or (cpe_start_ver[0] == version[0] and cpe_start_ver[1] == version[1]
+                    and cpe_start_ver[2] <= version[2]):
+            cpe_end_ver = cpe['versionEndExcluding'].split(".")
+            if cpe_end_ver[0] > version[0] or (cpe_end_ver[0] == version[0] and cpe_end_ver[1] > version[1]) \
+                    or (cpe_end_ver[0] == version[0] and cpe_end_ver[1] == version[1]
+                        and cpe_end_ver[2] > version[2]):
+                cve_result['library'][cve['ID']] = \
+                    {'type': 'exclusive',
+                     'severity': cve['baseMetricV3']['severity'], 'cvss': cve['baseMetricV3']['cvss'],
+                     'start_ver': cpe['versionStartIncluding'], 'end_ver': cpe['versionEndExcluding'],
+                     'description': cve['title']}
 
-
-print_bar()
-
-########## /nodes/self checks
+# [REST CALL] /nodes/self checks
 
 print('Node Services: {}'.format(self_data['services']))
 
-'''
-Best practice is to use Enforce TLS
-by setting encryption level to "strict"
-'''
+print_bar()
 
 if not self_data['nodeEncryption']:
-    print('Node encryption disabled')
-
-'''
-Best practice to only allow the IP address family
-as needed
-'''
+    rest_result.append({'msg': 'Node encryption disabled', 'sev': 'CRITICAL',
+                       'tip': 'Use Enforce TLS by setting encryption level to "strict"'})
 
 if not self_data['addressFamilyOnly']:
-    print('IP Address family not restricted')
+    rest_result.append({'msg': 'IP Address family not restricted', 'sev': 'LOW',
+                        'tip': 'Only allow the IPv4/v6 address family as needed'})
 
-'''
-Best practice is to use hostnames with TLS
-'''
-
-if self_data['hostname'].\
+if self_data['hostname']. \
         replace('.', '').replace(':', '').isdigit():
-    print('Using IPs not Hostnames')
+    rest_result.append({'msg': 'Using IPs not Hostnames', 'sev': 'LOW',
+                        'tip': 'Best practice is to use hostnames with TLS'})
 
-########## /settings/audit checks
-
-'''
-Best practice is to enable couchbase auditing
-this should be used to monitor key system configuration changes
-and respond to incidents or perform forensic analysis.
-'''
+# [REST CALL] /settings/audit checks
 
 if not audit_data['auditdEnabled']:
-    print('Audit not enabled')
+    rest_result.append({'msg': 'Audit not enabled', 'sev': 'HIGH',
+                        'tip': 'Use Auditing to monitor key system configuration changes'})
 
-
-########## /settings/ldap checks
-
-'''
-The best practice is to make MFA mandatory for all administrator accounts.
-It must be implemented as part of external authentication
-such as LDAP
-'''
+# [REST CALL] /settings/ldap checks
 
 if not ldap_data['authenticationEnabled']:
-    print('LDAP Authentication not enabled')
+    rest_result.append({'msg': 'LDAP Authentication not enabled', 'sev': 'MEDIUM',
+                        'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
 
 if not ldap_data['authorizationEnabled']:
-    print('LDAP Authorization not enabled')
+    rest_result.append({'msg': 'LDAP Authorization not enabled', 'sev': 'MEDIUM',
+                        'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
 
 if not ldap_data['encryption']:
-    print('LDAP encryption not enabled')
+    rest_result.append({'msg': 'LDAP encryption not enabled', 'sev': 'HIGH',
+                        'tip': 'LDAP connection needs over the wire encryption'})
 
-########## /settings/passwordPolicy checks
+# [REST CALL] /settings/passwordPolicy checks
 
 '''
 Password Policy best practice is to use a password manager
@@ -277,56 +249,94 @@ with letters, numbers and special characters.
 '''
 
 if pw_policy_data['minLength'] < 12:
-    print('Password Policy length of %s too short' % pw_policy_data['minLength'])
+
+    rest_result.append(
+        {'msg': 'Password Policy length of {} too short'
+            .format(pw_policy_data['minLength']), 'sev': 'HIGH',
+         'tip': 'Use a passphrase of at least 15 characters separating each word with a '
+                'special character OR a password at least 12 characters long with '
+                'letters, numbers and special characters'})
 
 if not pw_policy_data['enforceSpecialChars']:
-    print('Password Policy not requiring special characters')
+    rest_result.append({'msg': 'Password Policy not requiring special characters',
+                        'sev': 'MEDIUM',
+                        'tip': 'Use a passphrase of at least 15 characters separating each word with a '
+                               'special character OR a password at least 12 characters long with '
+                               'letters, numbers and special characters'
+                        })
 
-########## /pools/default/certificate?extended=true checks
-
-'''
-Best practice, replace self-signed certificates
- with certificates generated from a trusted CA
-'''
+# [REST CALL] /pools/default/certificate?extended=true checks
 
 if cert_data['cert']['type'] == 'generated':
-    print('Using self-signed generated TLS cert')
+    rest_result.append({'msg': 'Using self-signed generated TLS cert', 'sev': 'MEDIUM',
+                        'tip': 'Replace self-signed certificates with certificates generated from a trusted CA'})
 
-########## /settings/security checks
-
-'''
-Best practice, require TLS v1.2 as the minimum
-TLS 1.0 and 1.1 are not considered secure
-'''
+# [REST CALL] /settings/security checks
 
 if security_data['tlsMinVersion'] == 'tlsv1' or \
         security_data['tlsMinVersion'] == 'tlsv1.1':
-    print('Min TLS of %s is insecure' % security_data['tlsMinVersion'])
-
-'''
-Best practice to only allow CA cert changes from
-a localhost connection
-'''
+    rest_result.append({'msg': 'Min TLS of {} is insecure'.
+                       format(security_data['tlsMinVersion']),
+                        'sev': 'MEDIUM',
+                        'tip': 'Require TLS v1.2 as the minimum, TLS 1.0 and 1.1 are not secure'})
 
 if security_data['allowNonLocalCACertUpload']:
-    print('Allowing non-local CA cert changes')
+    rest_result.append({'msg': 'Allowing non-local CA cert changes', 'sev': 'HIGH',
+                        'tip': 'Only allow CA cert changes from localhost'})
 
-########## /settings/querySettings checks
-
-'''
-Best practice, only allow cURL in N1QL to specific hosts
-added to the allowed list
-'''
+# [REST CALL] /settings/querySettings checks
 
 if query_data['queryCurlWhitelist']['all_access']:
-    print('Query cURL not restricted')
+    rest_result.append({'msg': 'Query cURL not restricted', 'sev': 'HIGH',
+                        'tip': 'Only allow cURL in N1QL to specific hosts'})
 
-########## /settings/clientCertAuth checks
-
-'''
-Best practice is for applications to auth with x.509 certs
-'''
+# [REST CALL] /settings/clientCertAuth checks
 
 if client_cert_data['state'] == 'disable':
-    print('Client x.509 cert auth disabled')
+    rest_result.append({'msg': 'Client x.509 cert auth disabled', 'sev': 'MEDIUM',
+                        'tip': 'Apps should auth with mTLS x.509 client certs'})
 
+# [OUTPUT] Print REST Results
+
+print("{} Configuration Issues".format(len(rest_result)))
+
+if len(rest_result) > 0:
+    for sev in cve_order:
+        for res_item in rest_result:
+            if res_item['sev'] == sev:
+                print("{}: {}".format(sev[0], res_item['msg']))
+                if args['verbose']:
+                    print(res_item['tip'])
+
+# [OUTPUT] Print CVE Results
+
+if (len(cve_result['cbserver'].keys()) + len(cve_result['library'].keys())) > 0:
+    if len(cve_result['cbserver'].keys()) > 0:
+        print_bar()
+        print("{} CVEs in Couchbase Server {}.{}.{}\n".format(len(cve_result['cbserver'].keys()), version[0],
+                                                              version[1], version[2]))
+        for cve_sev in cve_order:
+            for cve in cve_result['cbserver']:
+                if cve_result['cbserver'][cve]['severity'] == cve_sev:
+                    print("{} {} ({}) ".format(cve, cve_sev, cve_result['cbserver'][cve]['cvss']))
+                    if args['verbose']:
+                        if cve_result['cbserver'][cve]['type'] == "single":
+                            print("-- vulnerable in version {}.{}.{} - Description: {}".format(
+                                cve_result['cbserver'][cve]['vuln_ver'][0], cve_result['cbserver'][cve]['vuln_ver'][1],
+                                cve_result['cbserver'][cve]['vuln_ver'][2], cve_result['cbserver'][cve]['description']))
+                        if cve_result['cbserver'][cve]['type'] == "exclusive" or \
+                                cve_result['cbserver'][cve]['type'] == "inclusive":
+                            print("-- vulnerable from {} to {} {} - Description: {}".format(
+                                cve_result['cbserver'][cve]['start_ver'], cve_result['cbserver'][cve]['end_ver'],
+                                cve_result['cbserver'][cve]['type'], cve_result['cbserver'][cve]['description']))
+    if len(cve_result['library'].keys()) > 0:
+        print_bar()
+        print("{} CVEs in 3rd Party Libraries\n".format(len(cve_result['library'].keys())))
+        for cve_sev in cve_order:
+            for cve in cve_result['library']:
+                if cve_result['library'][cve]['severity'] == cve_sev:
+                    print("{} {} ({}) ".format(cve, cve_sev, cve_result['library'][cve]['cvss']))
+                    if args['verbose']:
+                        print("-- vulnerable from {} to {} {} - Description: {}".format(
+                            cve_result['library'][cve]['start_ver'], cve_result['library'][cve]['end_ver'],
+                            cve_result['library'][cve]['type'], cve_result['library'][cve]['description']))
