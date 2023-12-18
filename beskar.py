@@ -29,11 +29,11 @@ The Couchbase Server Security Scanner
 all_args = argparse.ArgumentParser()
 
 # Add arguments to the parser
-all_args.add_argument("-u", "--user", required=True,
+all_args.add_argument("-u", "--user", required=False,
                       help="Username, needs to be an Admin")
 all_args.add_argument("-p", "--pass", required=False,
                       help="Password, will prompt if not provided")
-all_args.add_argument("-c", "--cluster", required=True,
+all_args.add_argument("-c", "--cluster", required=False,
                       help="Cluster URL - "
                            "example: https://10.145.212.101:18091")
 all_args.add_argument("-n", "--noverify", required=False,
@@ -45,11 +45,33 @@ all_args.add_argument("-d", "--debug", required=False,
 all_args.add_argument("-f", "--force", required=False,
                       help="Force cluster version - "
                             "example: -f 6.6.5")
+all_args.add_argument("-x", "--nocheck", required=False,
+                      action='store_true', 
+                      help="Don't connect to a cluster and run checks"
+                      " use with the --force option")
 args = vars(all_args.parse_args())
 
+if not args['user']:
+    if not args['nocheck']:
+        try:
+            args['user'] = getpass.getpass(prompt='Username: ')
+        except Exception as tion:
+            print('Error Occurred : ', tion)
+    else:
+        args['user'] = "foo"
+
 if not args['pass']:
+    if not args['nocheck']:
+        try:
+            args['pass'] = getpass.getpass()
+        except Exception as tion:
+            print('Error Occurred : ', tion)
+    else:
+        args['pass'] = "bar"
+
+if not args['cluster']:
     try:
-        args['pass'] = getpass.getpass()
+        args['cluster'] = "http://localhost:8091"
     except Exception as tion:
         print('Error Occurred : ', tion)
 
@@ -93,35 +115,36 @@ def rest_call(url):
     :return:
     """
 
-    try:
-        if args['noverify']:
-            response = requests.get(url, verify=False,
-                                    auth=HTTPBasicAuth(args['user'],
-                                                       args['pass']))
-        else:
-            response = requests.get(url,
-                                    auth=HTTPBasicAuth(
-                                        args['user'], args['pass']))
-        if args['debug']:
-            if response:
-                print('Request to {} is successful.'.format(url))
+    if not args['nocheck']:
+        try:
+            if args['noverify']:
+                response = requests.get(url, verify=False,
+                                        auth=HTTPBasicAuth(args['user'],
+                                                        args['pass']))
             else:
-                print('Request to {} returned an error.'.format(url))
+                response = requests.get(url,
+                                        auth=HTTPBasicAuth(
+                                            args['user'], args['pass']))
+            if args['debug']:
+                if response:
+                    print('Request to {} is successful.'.format(url))
+                else:
+                    print('Request to {} returned an error.'.format(url))
 
-            print(response)
-    except Exception as rest_exception:
-        response = ""
-        print('REST Call Exception : ', rest_exception)
-        quit()
+                print(response)
+        except Exception as rest_exception:
+            response = ""
+            print('REST Call Exception : ', rest_exception)
+            quit()
 
-    # convert json to Python object
-    if response is not None:
-        rest_data = response.json()
+        # convert json to Python object
+        if response is not None:
+            rest_data = response.json()
 
-    if args['debug']:
-        print(str(rest_data))
+        if args['debug']:
+            print(str(rest_data))
 
-    return rest_data
+        return rest_data
 
 
 pools_data = rest_call(args['cluster'] + '/pools')
@@ -138,7 +161,8 @@ client_cert_data = rest_call(args['cluster'] + '/settings/clientCertAuth')
 # [REST CALL] /pools checks
 
 # i.e. 7.0.2-6703-enterprise
-version_build = pools_data['implementationVersion'].split("-")
+if not args['nocheck']:
+    version_build = pools_data['implementationVersion'].split("-")
 
 if args['force']:
     version = args['force'].split(".")
@@ -146,16 +170,17 @@ if args['force']:
 else:
     version = version_build[0].split(".")
 
-if pools_data['implementationVersion']:
-    print('Cluster Version: {}'.format(
-        pools_data['implementationVersion']))
+if not args['nocheck']:
+    if pools_data['implementationVersion']:
+        print('Cluster Version: {}'.format(
+            pools_data['implementationVersion']))
 
-    if args['verbose']:
-        print('Major ({}) - Minor ({}) - Maintenance ({})'.format(
-            version[0], version[1], version[2]))
+        if args['verbose']:
+            print('Major ({}) - Minor ({}) - Maintenance ({})'.format(
+                version[0], version[1], version[2]))
 
-    if version_build[2] != "enterprise":
-        sys.exit("Error: Only Couchbase Enterprise builds supported")
+        if version_build[2] != "enterprise":
+            sys.exit("Error: Only Couchbase Enterprise builds supported")
 
 rest_result = []
 cve_result = {"cbserver": {}, "library": {}}
@@ -253,114 +278,114 @@ if 'library_cves' in globals():
     check_library_cves()
 
 # [REST CALL] /nodes/self checks
+if not args['nocheck']:
+    if 'services' in self_data:
+        print('Node Services: {}'.format(self_data['services']))
 
-if 'services' in self_data:
-    print('Node Services: {}'.format(self_data['services']))
+    print_bar()
 
-print_bar()
+    if not self_data['nodeEncryption']:
+        rest_result.append({'msg': 'Node encryption disabled', 'sev': 'CRITICAL',
+                        'tip': 'Use Enforce TLS by setting encryption level to "strict"'})
 
-if not self_data['nodeEncryption']:
-    rest_result.append({'msg': 'Node encryption disabled', 'sev': 'CRITICAL',
-                       'tip': 'Use Enforce TLS by setting encryption level to "strict"'})
+    if not self_data['addressFamilyOnly']:
+        rest_result.append({'msg': 'IP Address family (IPv4/v6) not restricted', 'sev': 'LOW',
+                            'tip': 'Only allow the IPv4/v6 address family as needed'})
 
-if not self_data['addressFamilyOnly']:
-    rest_result.append({'msg': 'IP Address family (IPv4/v6) not restricted', 'sev': 'LOW',
-                        'tip': 'Only allow the IPv4/v6 address family as needed'})
+    if self_data['hostname']. \
+            replace('.', '').replace(':', '').isdigit():
+        rest_result.append({'msg': 'Using IPs not Hostnames', 'sev': 'LOW',
+                            'tip': 'Best practice is to use hostnames with TLS'})
 
-if self_data['hostname']. \
-        replace('.', '').replace(':', '').isdigit():
-    rest_result.append({'msg': 'Using IPs not Hostnames', 'sev': 'LOW',
-                        'tip': 'Best practice is to use hostnames with TLS'})
+    # [REST CALL] /settings/audit checks
 
-# [REST CALL] /settings/audit checks
+    if not audit_data['auditdEnabled']:
+        rest_result.append({'msg': 'Audit not enabled', 'sev': 'HIGH',
+                            'tip': 'Use Auditing to monitor key system configuration changes'})
 
-if not audit_data['auditdEnabled']:
-    rest_result.append({'msg': 'Audit not enabled', 'sev': 'HIGH',
-                        'tip': 'Use Auditing to monitor key system configuration changes'})
+    # [REST CALL] /settings/ldap checks
 
-# [REST CALL] /settings/ldap checks
+    if not ldap_data['authenticationEnabled']:
+        rest_result.append({'msg': 'MFA, LDAP Authentication not enabled', 'sev': 'MEDIUM',
+                            'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
 
-if not ldap_data['authenticationEnabled']:
-    rest_result.append({'msg': 'MFA, LDAP Authentication not enabled', 'sev': 'MEDIUM',
-                        'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
+    if not ldap_data['authorizationEnabled']:
+        rest_result.append({'msg': 'MFA, LDAP Authorization not enabled', 'sev': 'MEDIUM',
+                            'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
 
-if not ldap_data['authorizationEnabled']:
-    rest_result.append({'msg': 'MFA, LDAP Authorization not enabled', 'sev': 'MEDIUM',
-                        'tip': 'Make MFA mandatory for all Administrator accounts via LDAP'})
+    if not ldap_data['encryption']:
+        rest_result.append({'msg': 'LDAP encryption not enabled', 'sev': 'HIGH',
+                            'tip': 'LDAP connection needs over the wire encryption'})
 
-if not ldap_data['encryption']:
-    rest_result.append({'msg': 'LDAP encryption not enabled', 'sev': 'HIGH',
-                        'tip': 'LDAP connection needs over the wire encryption'})
+    # [REST CALL] /settings/passwordPolicy checks
 
-# [REST CALL] /settings/passwordPolicy checks
+    '''
+    Password Policy best practice is to use a password manager
+    and use a passphrase of at least 15 characters
+    separating each word with a special character
+    OR a password at least 12 characters long
+    with letters, numbers and special characters.
+    '''
 
-'''
-Password Policy best practice is to use a password manager
-and use a passphrase of at least 15 characters
-separating each word with a special character
-OR a password at least 12 characters long
-with letters, numbers and special characters.
-'''
+    if pw_policy_data['minLength'] < 12:
 
-if pw_policy_data['minLength'] < 12:
+        rest_result.append(
+            {'msg': 'Password Policy length of {} too short'
+                .format(pw_policy_data['minLength']), 'sev': 'HIGH',
+            'tip': 'Use a passphrase of at least 15 characters separating each word with a '
+                    'special character OR a password at least 12 characters long with '
+                    'letters, numbers and special characters'})
 
-    rest_result.append(
-        {'msg': 'Password Policy length of {} too short'
-            .format(pw_policy_data['minLength']), 'sev': 'HIGH',
-         'tip': 'Use a passphrase of at least 15 characters separating each word with a '
-                'special character OR a password at least 12 characters long with '
-                'letters, numbers and special characters'})
+    if not pw_policy_data['enforceSpecialChars']:
+        rest_result.append({'msg': 'Password Policy not requiring special characters',
+                            'sev': 'MEDIUM',
+                            'tip': 'Use a passphrase of at least 15 characters separating each word with a '
+                                'special character OR a password at least 12 characters long with '
+                                'letters, numbers and special characters'
+                            })
 
-if not pw_policy_data['enforceSpecialChars']:
-    rest_result.append({'msg': 'Password Policy not requiring special characters',
-                        'sev': 'MEDIUM',
-                        'tip': 'Use a passphrase of at least 15 characters separating each word with a '
-                               'special character OR a password at least 12 characters long with '
-                               'letters, numbers and special characters'
-                        })
+    # [REST CALL] /pools/default/certificate?extended=true checks
 
-# [REST CALL] /pools/default/certificate?extended=true checks
+    if cert_data['cert']['type'] == 'generated':
+        rest_result.append({'msg': 'Using self-signed generated TLS cert', 'sev': 'MEDIUM',
+                            'tip': 'Replace self-signed certificates with certificates generated from a trusted CA'})
 
-if cert_data['cert']['type'] == 'generated':
-    rest_result.append({'msg': 'Using self-signed generated TLS cert', 'sev': 'MEDIUM',
-                        'tip': 'Replace self-signed certificates with certificates generated from a trusted CA'})
+    # [REST CALL] /settings/security checks
 
-# [REST CALL] /settings/security checks
+    if security_data['tlsMinVersion'] == 'tlsv1' or \
+            security_data['tlsMinVersion'] == 'tlsv1.1':
+        rest_result.append({'msg': 'Min TLS of {} is insecure'.
+                        format(security_data['tlsMinVersion']),
+                            'sev': 'MEDIUM',
+                            'tip': 'Require TLS v1.2 as the minimum, TLS 1.0 and 1.1 are not secure'})
 
-if security_data['tlsMinVersion'] == 'tlsv1' or \
-        security_data['tlsMinVersion'] == 'tlsv1.1':
-    rest_result.append({'msg': 'Min TLS of {} is insecure'.
-                       format(security_data['tlsMinVersion']),
-                        'sev': 'MEDIUM',
-                        'tip': 'Require TLS v1.2 as the minimum, TLS 1.0 and 1.1 are not secure'})
+    if security_data['allowNonLocalCACertUpload']:
+        rest_result.append({'msg': 'Allowing non-local CA cert changes', 'sev': 'HIGH',
+                            'tip': 'Only allow CA cert changes from localhost'})
 
-if security_data['allowNonLocalCACertUpload']:
-    rest_result.append({'msg': 'Allowing non-local CA cert changes', 'sev': 'HIGH',
-                        'tip': 'Only allow CA cert changes from localhost'})
+    # [REST CALL] /settings/querySettings checks
 
-# [REST CALL] /settings/querySettings checks
+    if query_data['queryCurlWhitelist']['all_access']:
+        rest_result.append({'msg': 'Query cURL not restricted', 'sev': 'HIGH',
+                            'tip': 'Only allow cURL in N1QL to specific hosts'})
 
-if query_data['queryCurlWhitelist']['all_access']:
-    rest_result.append({'msg': 'Query cURL not restricted', 'sev': 'HIGH',
-                        'tip': 'Only allow cURL in N1QL to specific hosts'})
+    # [REST CALL] /settings/clientCertAuth checks
 
-# [REST CALL] /settings/clientCertAuth checks
+    if client_cert_data['state'] == 'disable':
+        rest_result.append({'msg': 'Client x.509 cert auth disabled', 'sev': 'MEDIUM',
+                            'tip': 'Apps should auth with mTLS x.509 client certs'})
 
-if client_cert_data['state'] == 'disable':
-    rest_result.append({'msg': 'Client x.509 cert auth disabled', 'sev': 'MEDIUM',
-                        'tip': 'Apps should auth with mTLS x.509 client certs'})
+    # [OUTPUT] Print REST Results
 
-# [OUTPUT] Print REST Results
+    print("{} Configuration Issues".format(len(rest_result)))
 
-print("{} Configuration Issues".format(len(rest_result)))
-
-if len(rest_result) > 0:
-    for sev in cve_order:
-        for res_item in rest_result:
-            if res_item['sev'] == sev:
-                print("{}: {}".format(sev[0], res_item['msg']))
-                if args['verbose']:
-                    print(res_item['tip'])
+    if len(rest_result) > 0:
+        for sev in cve_order:
+            for res_item in rest_result:
+                if res_item['sev'] == sev:
+                    print("{}: {}".format(sev[0], res_item['msg']))
+                    if args['verbose']:
+                        print(res_item['tip'])
 
 # [OUTPUT] Print CVE Results
 
